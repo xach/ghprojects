@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+<id>urn:xach:github:newrepos</id>
+<updated><!-- TMPL_VAR max-date --></updated>
+<title type='text'>New GitHub Common Lisp Repos</title>
+<!-- TMPL_LOOP entries --> <entry>
+  <title><!-- TMPL_VAR owner -->: <!-- TMPL_VAR title --></title>
+  <author>
+   <name><!-- TMPL_VAR owner --></name>
+  </author>
+  <link href="https://github.com<!-- TMPL_VAR path -->" />
+  <id>urn:xach:github:<!-- TMPL_VAR owner -->:<!-- TMPL_VAR title --></id>
+  <published><!-- TMPL_VAR date --></published>
+  <updated><!-- TMPL_VAR date --></updated>
+  <content type="html">
+   <!-- TMPL_VAR desc -->
+  </content>
+ </entry>
+<!-- /TMPL_LOOP --></feed>
