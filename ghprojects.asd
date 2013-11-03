@@ -4,10 +4,11 @@
   :serial t
   :description "Scrape GitHub and write out a feed for new Common Lisp
   projects."
-  :depends-on (#:webscraper
+  :depends-on (#:drakma
+               #:yason
+               #:flexi-streams
                #:html-template
-               #:cl-ppcre
-               #:closure-html)
+               #:cl-ppcre)
   :components ((:file "package")
                (:file "ghprojects")))
 
