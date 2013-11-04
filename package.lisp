@@ -1,7 +1,6 @@
 ;;;; package.lisp
 
 (defpackage #:ghprojects
-  (:use #:cl
-        #:webscraper)
+  (:use #:cl)
   (:export #:main))
 

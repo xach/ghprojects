@@ -8,7 +8,7 @@
   <author>
    <name><!-- TMPL_VAR owner --></name>
   </author>
-  <link href="https://github.com<!-- TMPL_VAR path -->" />
+  <link href="<!-- TMPL_VAR path -->" />
   <id>urn:xach:github:<!-- TMPL_VAR owner -->:<!-- TMPL_VAR title --></id>
   <published><!-- TMPL_VAR date --></published>
   <updated><!-- TMPL_VAR date --></updated>
