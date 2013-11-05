@@ -1,7 +1,10 @@
 ;;;; package.lisp
 
 (defpackage #:ghprojects
-  (:use #:cl
-        #:webscraper)
+  (:use #:cl)
+  (:import-from #:local-time
+                #:now
+                #:timestamp+
+                #:format-timestring)
   (:export #:main))
 

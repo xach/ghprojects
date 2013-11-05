@@ -4,87 +4,67 @@
 
 ;;; "ghprojects" goes here. Hacks and glory await!
 
-(defvar *url* "https://github.com/languages/Common%20Lisp/created"
-  "The URL to scrape for projects.")
+(defun github-api-date (&optional (days-ago 0))
+  "A date formatted for the github api created field.
+e.g. 2013-11-03"
+  (let ((timestamp (timestamp+ (now) (- days-ago) :day)))
+    (format-timestring nil timestamp
+                       :format
+                       '(:year "-" (:month 2 #\0) "-" (:day 2 #\0)))))
 
-(defvar *months*
-  (let ((table (make-hash-table :test 'equalp)))
-    (loop for i from 1
-          for month in '("Jan" "Feb" "Mar" "Apr" "May" "Jun"
-                         "Jul" "Aug" "Sep" "Oct" "Nov" "Dec")
-          do (setf (gethash month table) i))
-    table)
-  "A hash table mapping a three-letter English month abbreviation to
-  an integer from 1 to 12.")
+(defun url (&key (days-ago 0))
+  "The API url for lisp projects created DAYS-AGO."
+  (concatenate
+   'string
+   "https://api.github.com/search/repositories?q=language:lisp+created:"
+   (github-api-date days-ago)))
 
-(defun current-year ()
-  (nth-value 5 (get-decoded-time)))
+(defun get-repos (url)
+  "Return a list of git repo information tables from URL."
+  (gethash "items"
+           (yason:parse
+            (flexi-streams:octets-to-string
+             (drakma:http-request url :user-agent :safari
+                                  ;; github doesn't recognize uri encoded #\+
+                                  :preserve-uri t)))))
 
-(defun parse-date-string (date-string)
-  "Parse a date string in the format \"DD Mon HH:MM\" to a
-  universal-time. Assumes the current year."
-  (ppcre:register-groups-bind ((#'parse-integer day)
-                               month
-                               (#'parse-integer hour minute))
-      ("(\\d\\d?) (...) (..):(..)" date-string)
-    (let ((month-number (gethash month *months*)))
-      (unless month-number
-        (error "Invalid month -- ~S" month))
-      (encode-universal-time 0 minute hour day month-number (current-year)))))
+(defun lookup (key-path table)
+  "Given a list of keys KEY-PATH, return the result of recursively
+looking up each key in TABLE, e.g. (lookup '(a b c) table) is equivalent to (gethash 'c (gethash 'b (gethash 'a table)))"
+  (if (listp key-path)
+      (dolist (key key-path table)
+        (setf table (gethash key table)))
+      (gethash key-path table)))
 
-(defun iso8601 (universal-time)
-  "Return an ISO 8601-style time string for UNIVERSAL-TIME."
-  (multiple-value-bind (second minute hour day month year)
-      (decode-universal-time universal-time 0)
-    (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
-            year month day hour minute second)))
+(defun =lookup (key-path)
+  (lambda (table)
+    (lookup key-path table)))
 
-(defun matching-text (fun doc)
-  "Return a list of string values for all nodes in DOC matching FUN."
-  (let ((nodes (stp:filter-recursively fun doc)))
-    (mapcar 'stp:string-value nodes)))
+(defun attribute-list (key-path repos)
+  "Collect the result of looking up (via LOOKUP) KEY-PATH in each repo
+of REPOS."
+  (mapcar (=lookup key-path) repos))
 
-(defun trim (string)
-  "Remove whitespace from the beginning and end of STRING."
-  (string-trim '(#\Space #\Return #\Newline) string))
-
-(defun tds (class doc)
-  "Return the string contents of any <td> elements with the given
-CLASS in DOC."
-  (matching-text (=and (=name-is "td")
-                       (=attribute-is "class" class))
-                 doc))
-
-(defun gravatars (doc)
-  "Return the SRC attribute of any gravatar <img> elements in DOC."
-  (let ((imgs (stp:filter-recursively
-               (=and (=name-is "img")
-                    (=attribute-matches "src" "gravatar"))
-               doc)))
-    (mapcar (lambda (img)
-              (stp:attribute-value img "src"))
-            imgs)))
-
-(defun template-values (doc)
+(defun template-values (repos)
   "Return template values suitable for filling in atom-template.xml
-for DOC with HTML-TEMPLATE."
-  (let ((titles (mapcar 'trim (tds "title" doc)))
-        (owners (mapcar 'trim (tds "owner" doc)))
-        (descs (mapcar 'trim (tds "desc" doc)))
-        (dates (mapcar 'parse-date-string (tds "date" doc)))
-        (gravatars (gravatars doc)))
-    (let ((max-date (reduce #'max dates)))
-      (list :max-date (iso8601 max-date)
-            :entries
-            (mapcar (lambda (title owner desc date gravatar)
-                      (list :title title
-                            :owner owner
-                            :desc desc
-                            :path (format nil "/~A/~A" owner title)
-                            :universal-time date
-                            :date (iso8601 date)
-                            :gravatar gravatar))
-                    titles owners descs dates gravatars)))))
+for REPOS with HTML-TEMPLATE."
+  (setf repos (sort repos #'string>
+                    :key (lambda (repo)
+                           (gethash "created_at" repo))))
+  (let ((titles (attribute-list "name" repos))
+        (owners (attribute-list '("owner" "login") repos))
+        (descs (attribute-list "description" repos))
+        (dates (attribute-list "created_at" repos))
+        (paths (attribute-list "html_url" repos)))
+    (list :max-date (car dates)
+          :entries
+          (mapcar (lambda (title owner desc path date)
+                    (list :title title
+                          :owner owner
+                          :desc desc
+                          :path path
+                          :date date))
+                  titles owners descs paths dates))))
 
 (defparameter *template*
   (html-template:create-template-printer
@@ -92,12 +72,13 @@ for DOC with HTML-TEMPLATE."
                     ghprojects-config:*base*)))
 
 (defun write-feed (file)
-  (let* ((html (url-content *url*))
-         (doc (chtml:parse html (stp:make-builder))))
+  (let ((repos (append (get-repos (url))
+                       (get-repos (url :days-ago 1))
+                       (get-repos (url :days-ago 2)))))
     (with-open-file (stream file :direction :output
                             :if-exists :rename-and-delete)
       (html-template:fill-and-print-template *template*
-                                             (template-values doc)
+                                             (template-values repos)
                                              :stream stream))
     (probe-file file)))
 

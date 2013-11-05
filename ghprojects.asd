@@ -4,10 +4,13 @@
   :serial t
   :description "Scrape GitHub and write out a feed for new Common Lisp
   projects."
-  :depends-on (#:webscraper
+  :author "Zachary Beane <xach@xach.com>"
+  :depends-on (#:drakma
+               #:yason
+               #:flexi-streams
                #:html-template
-               #:cl-ppcre
-               #:closure-html)
+               #:local-time
+               #:cl-ppcre)
   :components ((:file "package")
                (:file "ghprojects")))
 
