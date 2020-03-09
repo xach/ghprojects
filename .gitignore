@@ -1,0 +1,6 @@
+### CommonLisp ###
+*.fasl
+
+### Emacs ###
+*.~
+\#*\#
