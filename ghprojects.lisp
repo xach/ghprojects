@@ -26,7 +26,8 @@ e.g. 2013-11-03"
             (flexi-streams:octets-to-string
              (drakma:http-request url :user-agent :safari
                                   ;; github doesn't recognize uri encoded #\+
-                                  :preserve-uri t)))))
+                                  :preserve-uri t)
+             :external-format :utf-8))))
 
 (defun lookup (key-path table)
   "Given a list of keys KEY-PATH, return the result of recursively
